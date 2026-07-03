@@ -1,109 +1,48 @@
-# CANCHAT — Asistente académico basado en RAG integrado con Moodle
+#CANCHAT — Asistente académico basado en RAG integrado con Moodle
 
 Trabajo de Fin de Grado — Universidad de Cantabria  
 Autor: Juan José Turcios Olalla  
-Director: Esteban Stafford Fernández
 
-## Descripción
+##Descripción
 
-Sistema de asistente académico que permite a los estudiantes consultar los materiales de sus asignaturas en lenguaje natural, obteniendo respuestas fundamentadas exclusivamente en los documentos subidos por el profesor. Se integra con Moodle mediante el estándar LTI, ejecutando todos los modelos de IA de forma local sin depender de servicios externos de pago.
+Asistente académico que permite a los estudiantes consultar los apuntes de sus asignaturas en lenguaje natural. Las respuestas se generan exclusivamente a partir de los documentos subidos por el profesor, evitando alucinaciones mediante la técnica RAG. Se integra con Moodle via LTI y ejecuta todos los modelos de IA de forma local.
 
-## Arquitectura
+##Requisitos
 
-```
-Moodle (LMS) ──LTI──► Backend (FastAPI) ──► Agente LangGraph
-                              │                      │
-                              ▼                      ▼
-                         /ingest              Qdrant (vectores)
-                              │                      │
-                              ▼                      ▼
-                         Streamlit              LLM (vLLM/Ollama)
-```
+- Python 3.11+
+- Docker
+- Ollama (desarrollo local)
+- Token de HuggingFace (producción)
 
-## Stack tecnológico
+##Instalación local
 
-- **Backend**: FastAPI + LangGraph + Qdrant
-- **LLM**: Ollama (desarrollo) / vLLM con Llama-3.1-8B-Instruct (producción)
-- **Embeddings**: all-MiniLM-L6-v2 (desarrollo) / BGE-M3 via TEI (producción)
-- **Frontend**: Streamlit
-- **Integración**: LTI 1.1 con Moodle 4.1
 
-## Instalación y uso
-
-### Desarrollo local
-
-1. Copia el archivo de variables de entorno:
-```bash
+git clone https://github.com/JuanjoTUOL/canchat.git
+cd canchat
 cp .env.example .env
-# Edita .env con tus valores
-```
 
-2. Instala las dependencias del backend:
-```bash
+#Backend
 cd backend
 pip install -r requirements.txt
-```
+uvicorn app.main:app --reload
 
-3. Instala las dependencias del frontend:
-```bash
+#Frontend (otra terminal)
 cd frontend
 pip install -r requisitos.txt
+streamlit run app.py
 ```
 
-4. Arranca Qdrant en Docker:
+Qdrant en Docker:
 ```bash
 docker run -d -p 6333:6333 qdrant/qdrant
 ```
 
-5. Arranca Ollama con el modelo:
-```bash
-ollama serve
-ollama pull llama3.1:8b
-```
-
-6. Arranca el backend:
-```bash
-cd backend
-uvicorn app.main:app --reload
-```
-
-7. Arranca el frontend:
-```bash
-cd frontend
-streamlit run app.py
-```
-
-### Producción (servidor Triton)
+##Despliegue en producción (Triton)
 
 ```bash
 docker compose -f docker-compose.triton.yml up -d --build
 ```
 
-## Estructura del proyecto
+##Nota sobre Moodle
 
-```
-canchat/
-├── backend/
-│   ├── app/
-│   │   ├── api/v1/
-│   │   │   ├── endpoints/
-│   │   │   │   ├── chat.py       # Endpoint de consulta
-│   │   │   │   ├── ingest.py     # Endpoint de ingesta de PDFs
-│   │   │   │   └── lti.py        # Endpoint de lanzamiento LTI
-│   │   │   └── router.py
-│   │   ├── core/config.py        # Configuración por variables de entorno
-│   │   ├── services/rag/
-│   │   │   ├── agent.py          # Agente LangGraph (retrieve + generate)
-│   │   │   └── vector_store.py   # Comunicación con Qdrant
-│   │   ├── utils/pdf_loader.py   # Extracción de texto de PDFs
-│   │   └── main.py
-│   ├── Dockerfile
-│   └── requirements.txt
-├── frontend/
-│   ├── app.py                    # Interfaz Streamlit
-│   ├── Dockerfile
-│   └── requisitos.txt
-├── docker-compose.triton.yml     # Despliegue en producción
-├── .env.example                  # Plantilla de variables de entorno
-└── .gitignore
-```
+La imagen `public.ecr.aws/bitnami/moodle:4.1` dejó de estar disponible públicamente en febrero de 2026. Para usarla es necesario tenerla en caché local y cargarla con `docker load`. El resto del sistema funciona de forma independiente sin Moodle.
