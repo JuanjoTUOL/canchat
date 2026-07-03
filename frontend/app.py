@@ -5,19 +5,19 @@ import os
 
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
-# set_page_config debe ser la primera orden de Streamlit
+#set_page_config debe ser la primera orden de Streamlit
 st.set_page_config(
     page_title="Asistente Académico",
     page_icon="👽",
     layout="centered"
 )
 
-# Leer parámetros de la URL si vienen de Moodle via LTI
+#Leemos parámetros de la URL si vienen de Moodle via LTI
 parametros_url = st.query_params
 id_curso_moodle = parametros_url.get("course_id", "test_tfg")
 id_usuario_moodle = parametros_url.get("user_id", "alumno_demo")
 
-# Estilo personalizado con CSS
+#USo un estilo personalizado con CSS
 st.markdown("""
     <style>
     .main {
@@ -31,7 +31,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# Barra lateral de configuración
+#Barra lateral de configuración
 with st.sidebar:
     st.title("⚙️ Configuración")
     st.markdown("---")
@@ -42,9 +42,7 @@ with st.sidebar:
         st.session_state.mensajes = []
         st.rerun()
 
-# Auto-limpieza del historial visual al cambiar de curso o alumno.
-# Esto garantiza que al cambiar de sesión no queden mensajes de otra conversación en pantalla,
-# aunque a nivel de backend LangGraph ya aísla los hilos por thread_id (curso_usuario).
+#Auto-limpieza del historial visual al cambiar de curso o alumno.
 identidad_actual = f"{id_curso}_{id_usuario}"
 if "identidad_anterior" not in st.session_state:
     st.session_state.identidad_anterior = identidad_actual
@@ -53,15 +51,15 @@ elif st.session_state.identidad_anterior != identidad_actual:
     st.session_state.identidad_anterior = identidad_actual
     st.rerun()
 
-# Cuerpo principal
+#Cuerpo principal
 st.title("Buenos días, en que te puedo ayudar hoy")
 st.caption("Pregunta lo que necesites sobre tus apuntes")
 
-# Inicializamos historial de mensajes
+#Inicializamos historial de mensajes
 if "mensajes" not in st.session_state:
     st.session_state.mensajes = []
 
-# Mostramos mensajes anteriores del historial
+#Mostramos mensajes anteriores del historial
 for mensaje in st.session_state.mensajes:
     with st.chat_message(mensaje["rol"]):
         st.markdown(mensaje["contenido"])
@@ -72,14 +70,14 @@ for mensaje in st.session_state.mensajes:
                     st.write(f"**Fragmento {idx+1}:**")
                     st.caption(fuente)
 
-# Input del usuario
+#Input del usuario
 if prompt := st.chat_input("Escribe tu duda aquí..."):
     # Añadimos mensaje del usuario al historial
     st.session_state.mensajes.append({"rol": "user", "contenido": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Respuesta de la IA
+    #Respuesta de la IA
     with st.chat_message("assistant"):
         message_placeholder = st.empty()
         message_placeholder.markdown("🔍 *Buscando en los apuntes...*")
@@ -98,7 +96,7 @@ if prompt := st.chat_input("Escribe tu duda aquí..."):
                 respuesta_completa = datos["answer"]
                 fuentes = datos.get("sources", [])
 
-                # Efecto de escritura "typewriter"
+                #Añadimos unfecto de escritura "typewriter"
                 texto_escrito = ""
                 for fragmento_texto in respuesta_completa.split():
                     texto_escrito += fragmento_texto + " "
@@ -107,7 +105,7 @@ if prompt := st.chat_input("Escribe tu duda aquí..."):
 
                 message_placeholder.markdown(respuesta_completa)
 
-                # Mostramos fuentes si existen
+                #Mostramos fuentes si existen
                 if fuentes:
                     with st.expander("📚 Ver fuentes consultadas"):
                         for idx, fuente in enumerate(fuentes):

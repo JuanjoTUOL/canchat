@@ -6,13 +6,13 @@ async def extract_text_from_pdf(file: UploadFile) -> str:
     """
     Lee el contenido de un archivo PDF subido y extrae todo su texto.
     """
-    # 1. Leemos los bytes del archivo que viene de FastAPI
+    #1.Leemos los bytes del archivo que viene de FastAPI
     content = await file.read()
     
-    # 2. Lo metemos en un "archivo virtual" en memoria (BytesIO)
+    #2.Lo metemos en un "archivo virtual" en memoria (BytesIO)
     pdf_file = io.BytesIO(content)
     
-    # 3. Usamos PdfReader para extraer el texto
+    #3.Usamos PdfReader para extraer el texto
     reader = PdfReader(pdf_file)
     text = ""
     for page in reader.pages:

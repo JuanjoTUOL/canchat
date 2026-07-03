@@ -7,10 +7,10 @@ from langchain_openai import ChatOpenAI
 from app.core.config import settings
 from app.services.rag.vector_store import VectorService
 
-# Inicializamos las herramientas
+#Inicializamos las herramientas
 vector_service = VectorService()
 
-# Compruebo si estoy en mi entorno de desarrollo o en el servidor (Triton)
+#Compruebo si estoy en mi entorno de desarrollo o en el servidor (Triton)
 if settings.LLM_PROVIDER == "vllm":
     llm = ChatOpenAI(
         base_url=settings.LLM_BASE_URL,
@@ -25,10 +25,10 @@ else:
         temperature=0  # Temperatura 0 para maximizar el determinismo en las respuestas
     )
 
-# Persistencia en memoria para el grafo de LangGraph
+#Persistencia en memoria para el grafo de LangGraph
 memory = MemorySaver()
 
-# Definimos el esquema del Estado (State) del agente
+#Definimos el esquema del Estado (State) del agente
 class AgentState(TypedDict):
     question: str
     context: List[str]
@@ -36,7 +36,7 @@ class AgentState(TypedDict):
     course_id: str
     history: List[BaseMessage]
 
-# DEFINICIÓN DE NODOS DEL GRAFO
+#DEFINICIÓN DE NODOS DEL GRAFO
 
 async def retrieve_node(state: AgentState):
     """Nodo encargado de la consulta a la base de datos vectorial (Qdrant)."""
@@ -53,10 +53,10 @@ async def generate_node(state: AgentState):
 
     context_str = "\n\n---\n\n".join(state['context'])
 
-    # El prompt pide al modelo que exprese su interpretación antes de la respuesta final,
-    # marcada con la etiqueta RESPUESTA:. El backend descarta todo lo anterior a esa marca,
-    # de forma que el razonamiento interno no llega al alumno.
-    # Esto mejora la tolerancia a erratas sin sacrificar la fidelidad al contexto.
+    #El prompt pide al modelo que exprese su interpretación antes de la respuesta final,
+    #marcada con la etiqueta RESPUESTA:. El backend descarta todo lo anterior a esa marca,
+    #asi el razonamiento interno no llega al alumno.
+    #Esto mejora la tolerancia a erratas sin sacrificar la fidelidad al contexto.
     system_prompt = f"""Eres un asistente académico que responde ÚNICAMENTE basándose en el CONTEXTO DEL PDF de abajo.
 
 La pregunta del estudiante puede tener erratas o estar mal escrita (por ejemplo "uin" significa "un", "ociuklto" significa "oculto"); interprétala correctamente antes de responder.
@@ -73,17 +73,17 @@ CONTEXTO DEL PDF:
 HISTORIAL DE LA CONVERSACIÓN:
 {chat_history_str}"""
 
-    # Estructuración del payload de mensajes para la API del LLM
+    #Estructuración del payload de mensajes para la API del LLM
     messages = [
         SystemMessage(content=system_prompt),
         HumanMessage(content=state['question'])
     ]
 
-    # Llamada asíncrona (ainvoke) para no bloquear el Event Loop de FastAPI
+    #Llamada asíncrona (ainvoke) para no bloquear el Event Loop de FastAPI
     response = await llm.ainvoke(messages)
 
-    # Post-procesado: nos quedamos solo con la parte tras "RESPUESTA:",
-    # ocultando el razonamiento intermedio del modelo al alumno.
+    #Post-procesado: nos quedamos solo con la parte tras "RESPUESTA:",
+    #ocultando el razonamiento intermedio del modelo al alumno.
     raw_answer = response.content
     if "RESPUESTA:" in raw_answer:
         final_answer = raw_answer.split("RESPUESTA:", 1)[1].strip()
@@ -98,18 +98,18 @@ HISTORIAL DE LA CONVERSACIÓN:
 
     return {"answer": final_answer, "history": new_history}
 
-# CONSTRUCCIÓN DEL GRAFO DE EJECUCIÓN
+#CONSTRUCCIÓN DEL GRAFO DE EJECUCIÓN
 
 workflow = StateGraph(AgentState)
 
-# Añadimos los nodos
+#Añadimos los nodos
 workflow.add_node("retrieve", retrieve_node)
 workflow.add_node("generate", generate_node)
 
-# Definimos el flujo de ejecución (Edges)
+#Definimos el flujo de ejecución
 workflow.add_edge(START, "retrieve")
 workflow.add_edge("retrieve", "generate")
 workflow.add_edge("generate", END)
 
-# Compilamos el grafo pasando el sistema de persistencia de memoria
+#Compilamos el grafo pasando el sistema de persistencia de memoria
 rag_agent = workflow.compile(checkpointer=memory)

@@ -13,8 +13,7 @@ class ChatRequest(BaseModel):
 @router.post("/")
 async def chat_endpoint(request: ChatRequest):
     try:
-        #Generamos un hilo de memoria dinámico y aislado
-        #Formato: curso_usuario (ej: "CURSO123_ALUMNO456")
+        #Generamos un hilo de memoria dinámico y aislado, Formato: curso_usuario
         session_id = f"{request.course_id}_{request.user_id}"
         config = {"configurable": {"thread_id": session_id}}
         

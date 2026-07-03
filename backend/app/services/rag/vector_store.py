@@ -15,7 +15,7 @@ class VectorService:
         self.client = QdrantClient(url=settings.QDRANT_URL)
         self.collection_name = settings.QDRANT_COLLECTION
 
-        # Compruebo si uso Embeddings locales o servidor TEI
+        #Compruebo si uso Embeddings locales o servidor TEI
         if settings.EMBEDDING_PROVIDER == "tei":
             # En ese caso, usamos la API de TEI compatible con protocolo OpenAI
             self.embeddings = OpenAIEmbeddings(
@@ -23,10 +23,10 @@ class VectorService:
                 base_url=settings.EMBEDDING_BASE_URL,
                 api_key="fake-key"  # TEI no requiere clave pero el cliente la pide
             )
-            # Tamaño típico de modelos profesionales como BGE-M3
+            #Este es el tamaño típico de modelos profesionales como BGE-M3
             self.vector_size = 1024
         else:
-            # Si es mi PC (HuggingFace local)
+            #Si es mi PC 
             self.embeddings = HuggingFaceEmbeddings(
                 model_name=settings.EMBEDDING_MODEL_NAME
             )
@@ -59,18 +59,15 @@ class VectorService:
     async def ingest_text(self, text: str, metadata: dict):
         chunks = self.text_splitter.split_text(text)
 
-        # Generamos IDs únicos para cada trozo
+        #Generamos IDs únicos para cada trozo
         ids = [hashlib.md5(f"{chunk}-{metadata.get('course_id')}".encode()).hexdigest() for chunk in chunks]
         metadatas = [metadata for _ in chunks]
 
-        # Comprobamos cuántos de estos IDs ya existen en Qdrant antes de insertar
-        # Nota: Qdrant almacena los IDs internamente como UUID, no como hash MD5 plano,
-        # por lo que comparamos por conteo (cuántos encontró) en vez de por string de ID.
+        #Comprobamos cuantos de estos IDs ya existen en Qdrant antes de insertar
         existing = self.client.retrieve(collection_name=self.collection_name, ids=ids, with_payload=False)
         num_existentes = len(existing)
 
-        # TEI limita el tamaño de batch a 32 textos por petición de embedding,
-        # así que troceamos la ingesta en lotes para no superar ese límite.
+        #TEI limita el tamaño de batch a 32 textos por petición de embedding, así que troceamos la ingesta en lotes para no superar ese límite.
         batch_size = 32
         for i in range(0, len(chunks), batch_size):
             batch_chunks = chunks[i:i + batch_size]
@@ -86,7 +83,7 @@ class VectorService:
         return {"total": total, "insertados": insertados, "omitidos": omitidos}
 
     async def search(self, query: str, course_id: str, limit: int = 12):
-        # Filtro para Qdrant (aislamiento por curso - RF-03)
+        #Filtro para Qdrant para aislamiento
         filter_condition = models.Filter(
             must=[
                 models.FieldCondition(
