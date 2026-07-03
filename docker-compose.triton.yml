@@ -1,0 +1,158 @@
+#Docker Compose de PRODUCCIÓN (Servidor Tritón)
+#Arranca todo con: docker compose -f docker-compose.triton.yml up -d
+services:
+  #1. BASE DE DATOS VECTORIAL
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+    volumes:
+      - ./qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/6333' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  #2. EMBEDDINGS (Text Embeddings Inference de HuggingFace)
+  tei:
+    image: ghcr.io/huggingface/text-embeddings-inference:latest
+    ports:
+      - "8080:80"
+    volumes:
+      - ./tei_models:/data
+    environment:
+      - HF_API_TOKEN=${HF_TOKEN}
+    command: --model-id BAAI/bge-m3 --port 80
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/80' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+      start_period: 360s
+    restart: unless-stopped
+
+  #3. LLM (vLLM)
+      #--model meta-llama/Meta-Llama-3.1-70B-Instruct
+  vllm:
+    image: vllm/vllm-openai:latest
+    init: true
+    shm_size: '16gb'
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./vllm_models:/root/.cache/huggingface
+    command: >
+      --model meta-llama/Llama-3.1-8B-Instruct
+      --dtype bfloat16
+      --max-model-len 8192
+    environment:
+      - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN}
+      - NCCL_P2P_DISABLE=1
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8000' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 60
+      start_period: 600s
+    restart: unless-stopped
+
+  #4. BACKEND (FastAPI + agente LangGraph)
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - QDRANT_URL=http://qdrant:6333
+      - LLM_PROVIDER=vllm
+      - LLM_BASE_URL=http://vllm:8000/v1
+      - LLM_MODEL_NAME=meta-llama/Llama-3.1-8B-Instruct
+      - EMBEDDING_PROVIDER=tei
+      - EMBEDDING_BASE_URL=http://tei:80
+      - LLM_API_KEY=dummy-key-vllm-local
+      - FRONTEND_URL=http://localhost:8501
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      tei:
+        condition: service_healthy
+      vllm:
+        condition: service_healthy
+    restart: unless-stopped
+
+  #5. FRONTEND (Streamlit)
+  frontend:
+    build: ./frontend
+    ports:
+      - "8501:8501"
+    environment:
+      - BACKEND_URL=http://backend:8000
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  #6. BASE DE DATOS DE MOODLE
+  mariadb:
+    image: mariadb:10.6
+    environment:
+      - MYSQL_DATABASE=moodle
+      - MYSQL_USER=moodle
+      - MYSQL_PASSWORD=moodlepass
+      - MYSQL_ROOT_PASSWORD=rootpass
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "moodle", "-pmoodlepass"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  #7. MOODLE LMS
+  moodle:
+    image: public.ecr.aws/bitnami/moodle:4.1
+    ports:
+      - "8081:8080"
+      - "8443:8443"
+    environment:
+      - MOODLE_DATABASE_HOST=mariadb
+      - MOODLE_DATABASE_PORT_NUMBER=3306
+      - MOODLE_DATABASE_USER=moodle
+      - MOODLE_DATABASE_PASSWORD=moodlepass
+      - MOODLE_DATABASE_NAME=moodle
+      - MOODLE_URL=http://localhost:8081
+      - MOODLE_USERNAME=admin
+      - MOODLE_PASSWORD=Admin~1234
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    volumes:
+      - moodle_data:/bitnami/moodle
+      - moodledata_data:/bitnami/moodledata
+    restart: unless-stopped
+
+volumes:
+  qdrant_data:
+  tei_models:
+  vllm_models:
+  mariadb_data:
+  moodle_data:
+  moodledata_data:

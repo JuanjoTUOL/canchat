@@ -1,0 +1,35 @@
+# Variables de entorno con credenciales reales
+.env
+
+# Modelos descargados (pueden pesar varios GB)
+vllm_models/
+tei_models/
+qdrant_data/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
