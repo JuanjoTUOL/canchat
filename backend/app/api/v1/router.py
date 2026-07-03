@@ -1,0 +1,9 @@
+from fastapi import APIRouter
+from app.api.v1.endpoints import chat, ingest, lti
+
+api_router = APIRouter()
+
+# Aquí conectamos todas las piezas del puzzle
+api_router.include_router(lti.router, prefix="/lti", tags=["lti"])
+api_router.include_router(chat.router, prefix="/chat", tags=["chat"])
+api_router.include_router(ingest.router, prefix="/ingest", tags=["ingest"])
